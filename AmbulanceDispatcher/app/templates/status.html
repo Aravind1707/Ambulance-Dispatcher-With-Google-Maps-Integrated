@@ -1,0 +1,12 @@
+<h2>Ambulance Status</h2>
+<table border="1">
+    <tr><th>ID</th><th>Latitude</th><th>Longitude</th><th>Status</th></tr>
+    {% for amb in ambulances %}
+    <tr>
+        <td>{{ amb[0] }}</td>
+        <td>{{ amb[1] }}</td>
+        <td>{{ amb[2] }}</td>
+        <td>{{ amb[3] }}</td>
+    </tr>
+    {% endfor %}
+</table>

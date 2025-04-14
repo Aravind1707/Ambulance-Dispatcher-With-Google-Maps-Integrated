@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Hospital Ambulance Dispatcher</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+            background: #f9f9f9;
+            color: #333;
+        }
+        h1 {
+            color: #2c3e50;
+        }
+        .container {
+            background: #fff;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            max-width: 600px;
+            margin: auto;
+        }
+        label {
+            font-weight: bold;
+        }
+        input[type="number"] {
+            padding: 8px;
+            margin: 5px 0 20px;
+            width: 100%;
+            box-sizing: border-box;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+        }
+        button {
+            padding: 10px 20px;
+            background: #27ae60;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #219150;
+        }
+        #result {
+            margin-top: 25px;
+            padding: 20px;
+            background: #ecf0f1;
+            border-left: 5px solid #2ecc71;
+            border-radius: 6px;
+            display: none;
+        }
+        #map {
+            height: 400px;
+            width: 100%;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚑 Ambulance Dispatcher</h1>
+        <form id="dispatchForm">
+            <label>Latitude:</label>
+            <input type="number" id="x" name="x" required><br>
+            <label>Longitude:</label>
+            <input type="number" id="y" name="y" required><br>
+            <button type="submit">Dispatch Ambulance</button>
+        </form>
+
+        <div id="result"></div>
+        <div id="map"></div>
+    </div>
+
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyABtiNjfUUZEMYtdqP9PfJds1CYuSiUl28&libraries=places"></script>
+    <script>
+        document.getElementById("dispatchForm").addEventListener("submit", async function(e) {
+            e.preventDefault();
+            const x = parseFloat(document.getElementById("x").value);
+            const y = parseFloat(document.getElementById("y").value);
+            const location = [x, y];
+
+            const response = await fetch("/dispatch", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ location: location })
+            });
+
+            const data = await response.json();
+            const amb = data.assigned_ambulance;
+
+            const dist = Math.sqrt(
+                Math.pow(amb.location[0] - location[0], 2) + 
+                Math.pow(amb.location[1] - location[1], 2)
+            ).toFixed(2);
+
+            document.getElementById("result").style.display = "block";
+            document.getElementById("result").innerHTML = `
+                <p><strong>Ambulance ID:</strong> ${amb.id}</p>
+                <p><strong>Location:</strong> [${amb.location[0]}, ${amb.location[1]}]</p>
+                <p><strong>Distance to you:</strong> ${dist} units</p>
+            `;
+
+            // Call the Google Maps API to calculate real driving distance
+            const distanceRequest = {
+                origins: [{lat: location[0], lng: location[1]}],
+                destinations: [{lat: amb.location[0], lng: amb.location[1]}],
+                travelMode: 'DRIVING'
+            };
+
+            const service = new google.maps.DistanceMatrixService();
+            service.getDistanceMatrix(distanceRequest, function(response, status) {
+                if (status === 'OK') {
+                    const distance = response.rows[0].elements[0].distance.text;
+                    document.getElementById("result").innerHTML += `
+                        <p><strong>Real Driving Distance:</strong> ${distance}</p>
+                    `;
+                } else {
+                    document.getElementById("result").innerHTML += `
+                        <p><strong>Real Driving Distance:</strong> Unable to fetch distance.</p>
+                    `;
+                }
+            });
+
+            // Call the plotMap function to display the map
+            plotMap(location, amb.location);
+        });
+
+        function plotMap(patientLoc, ambulanceLoc) {
+            const map = new google.maps.Map(document.getElementById("map"), {
+                center: { lat: patientLoc[0], lng: patientLoc[1] },
+                zoom: 13,
+            });
+
+            new google.maps.Marker({
+                position: { lat: patientLoc[0], lng: patientLoc[1] },
+                map,
+                label: "You",
+            });
+
+            new google.maps.Marker({
+                position: { lat: ambulanceLoc[0], lng: ambulanceLoc[1] },
+                map,
+                label: "Ambulance",
+            });
+        }
+
+        setInterval(function() {
+    fetch('/dispatch')
+        .then(response => response.json())
+        .then(data => {
+            const amb = data.assigned_ambulance;
+            const patientLoc = { lat: location[0], lng: location[1] };
+            const ambulanceLoc = { lat: amb.location[0], lng: amb.location[1] };
+
+            plotMap(patientLoc, ambulanceLoc);
+            updateDashboard(amb);
+        });
+}, 10000);  // Refresh every 10 seconds
+
+function updateDashboard(ambulance) {
+    document.getElementById("status").innerHTML = `
+        <p><strong>Ambulance ID:</strong> ${ambulance.id}</p>
+        <p><strong>Status:</strong> ${ambulance.status}</p>
+    `;
+}
+
+
+        // Real-time ambulance location update every 5 seconds (simulated)
+        setInterval(function() {
+            fetch('/update_location')
+                .then(response => response.json())
+                .then(data => {
+                    const patientLoc = [parseFloat(document.getElementById("x").value), parseFloat(document.getElementById("y").value)];
+                    const ambulanceLoc = { lat: data.latitude, lng: data.longitude };
+                    plotMap(patientLoc, ambulanceLoc);
+                });
+        }, 5000);  // Refresh every 5 seconds
+    </script>
+</body>
+</html>

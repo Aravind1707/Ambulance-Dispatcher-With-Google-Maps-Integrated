@@ -1,0 +1,11 @@
+<h2>Register Ambulance</h2>
+<form method="POST" action="/admin/register">
+    <label>Latitude:</label><input name="latitude" required><br>
+    <label>Longitude:</label><input name="longitude" required><br>
+    <label>Status:</label>
+    <select name="status">
+        <option value="available">Available</option>
+        <option value="on-trip">On Trip</option>
+    </select><br>
+    <button type="submit">Register</button>
+</form>
